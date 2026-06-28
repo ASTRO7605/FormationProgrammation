@@ -7,8 +7,6 @@ import frc.robot.Constants.FieldConstants;
 import frc.robot.Constants.PoseEstimationConstants;
 import frc.robot.Constants.VisionConstants;
 import frc.robot.Constants.VisionConstants.LimelightIMUModes;
-import frc.robot.utils.ShotCalculator;
-import frc.robot.LimelightVisionResult;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
@@ -59,17 +57,9 @@ public class Base extends SubsystemBase {
 
     private final Field2d m_robotField;
 
-    private final Map<String, LimelightVisionModule> m_visionModules = new HashMap<>();
-    private boolean useVision = true;
-
-    private Translation2d m_currentTarget;
-    // private final MutVoltage m_appliedVoltage = Volts.mutable(0);
-
     /** radians */
     private double m_gyroOffset = 0.0;
     private boolean m_drivingInFieldRelative = true;
-
-    private final ShotCalculator shotCalculator;
 
     private final SysIdRoutine routine;
 
@@ -143,22 +133,6 @@ public class Base extends SubsystemBase {
         );
         m_drivingInFieldRelative = true;
         m_gyro.reset();
-
-        // initialize vision modules
-        if (useVision) {
-            m_visionModules.put(VisionConstants.limelight4Name, new
-            LimelightVisionModule(
-            VisionConstants.limelight4Name, VisionConstants.robotTolimelight4Transform,
-            this::getHeading));
-            m_visionModules.put(VisionConstants.limelight3Name, new LimelightVisionModule(
-                    VisionConstants.limelight3Name, VisionConstants.robotTolimelight3Transform, this::getHeading));
-            // m_visionModules.put(VisionConstants.limelight2Name, new
-            // LimelightVisionModule(
-            // VisionConstants.limelight2Name, VisionConstants.robotTolimelight2Transform,
-            // this::getHeading));
-        }
-
-        shotCalculator = ShotCalculator.getInstance();
     }
 
     public boolean shouldPathsFlip() {
@@ -227,7 +201,6 @@ public class Base extends SubsystemBase {
     }
 
     public void setPose(Pose2d pose) {
-        setLimelight4IMUMode(LimelightIMUModes.EXTERNAL_SEED);
         m_poseEstimator.resetPosition(getGyroYaw(), getModulePositions(), pose);
     }
 
@@ -256,12 +229,6 @@ public class Base extends SubsystemBase {
     }
 
     public void setModulesFacingForward() {
-        for (var module : m_swerveMods) {
-            module.setDesiredState(new SwerveModuleState(0, new Rotation2d(0)), false);
-        }
-    }
-
-    public void stopWheels() {
         for (var module : m_swerveMods) {
             module.setDesiredState(new SwerveModuleState(0, new Rotation2d(0)), false);
         }
@@ -300,123 +267,8 @@ public class Base extends SubsystemBase {
         }
     }
 
-    private void updateVisionEstimate() {
-        for (LimelightVisionModule vis : m_visionModules.values()) {
-            LimelightVisionResult o_result = vis.getEstimatedPoses();
-            var result = o_result.mt2Estimate();
-            double distance = o_result.closestTagDistance();
-
-            // filter out empty results
-            if (result.isEmpty()) {
-                continue;
-            }
-
-            var stdDevs = PoseEstimationConstants.kVisionStdDevsPerMeterGlobal.times(distance)
-                    .plus(PoseEstimationConstants.kVisionStdDevsBaselineGlobal);
-
-            Pose2d measurement2d = result.get().pose;
-
-            m_poseEstimator.addVisionMeasurement(measurement2d, result.get().timestampSeconds,
-                    stdDevs);
-        }
-    }
-
-    public void setLimelight4IMUMode(VisionConstants.LimelightIMUModes mode) {
-        if (useVision) {
-            var limelight4 = m_visionModules.get(VisionConstants.limelight4Name);
-            if (limelight4 != null) {
-                limelight4.setIMUMode(mode);
-            }
-        }
-    }
-
-    public Optional<Pose2d> getAverageMt1PoseFromCameras() {
-        List<Pose2d> poses = new ArrayList<>();
-        for (LimelightVisionModule module : m_visionModules.values()) {
-            var measurement = module.getEstimatedPoses().mt1Estimate();
-            measurement.ifPresent(result -> poses.add(result.pose));
-        }
-
-        if (poses.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Translation2d averageTranslation = new Translation2d();
-        Rotation2d averageRotation = new Rotation2d();
-        for (Pose2d pose : poses) {
-            averageTranslation = averageTranslation.plus(pose.getTranslation());
-            averageRotation = averageRotation.plus(pose.getRotation());
-        }
-
-        averageTranslation = averageTranslation.div(poses.size());
-        averageRotation = averageRotation.div(poses.size());
-
-        return Optional.of(new Pose2d(averageTranslation, averageRotation));
-    }
-
-    public Optional<Pose2d> getAverageMt2PoseFromCameras() {
-        List<Pose2d> poses = new ArrayList<>();
-        for (LimelightVisionModule module : m_visionModules.values()) {
-            var measurement = module.getEstimatedPoses().mt2Estimate();
-            measurement.ifPresent(result -> poses.add(result.pose));
-        }
-
-        if (poses.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Translation2d averageTranslation = new Translation2d();
-        Rotation2d averageRotation = new Rotation2d();
-        for (Pose2d pose : poses) {
-            averageTranslation = averageTranslation.plus(pose.getTranslation());
-            averageRotation = averageRotation.plus(pose.getRotation());
-        }
-
-        averageTranslation = averageTranslation.div(poses.size());
-        averageRotation = averageRotation.div(poses.size());
-
-        return Optional.of(new Pose2d(averageTranslation, averageRotation));
-    }
-
-    private void updateShotTarget() {
-        var robotTranslation = getPose().getTranslation();
-        // flip to blue to simplify zone checking
-        if (m_allianceColor == Alliance.Red) {
-            robotTranslation = FieldConstants.flipPosColor(robotTranslation);
-        }
-
-        if (robotTranslation.getX() < FieldConstants.kXPosFeed) {
-            // in shooting zone (left of hub)
-            m_currentTarget = FieldConstants.BluePositions.HUB.translation2d;
-        } else {
-            if (robotTranslation.getY() > (FieldConstants.kFullFieldCoords.getY() / 2)) {
-                // in depot half of field
-                m_currentTarget = FieldConstants.BluePositions.DEPOT_DUMP.translation2d;
-            } else {
-                // in outpost half of field
-                m_currentTarget = FieldConstants.BluePositions.OUTPOST_DUMP.translation2d;
-            }
-        }
-
-        if (m_allianceColor == Alliance.Red) {
-            m_currentTarget = FieldConstants.flipPosColor(m_currentTarget);
-        }
-
-        m_robotField.getObject("Target").setPose(m_currentTarget.getX(), m_currentTarget.getY(),
-                new Rotation2d());
-    }
-
     @Override
     public void periodic() {
-        // update pose estimator with vision, if applicable
-
-        updateVisionEstimate();
-
-        updateShotTarget();
-
-        shotCalculator.updateShotInfo(getRobotRelativeSpeeds(), getPose(),
-                m_currentTarget);
-
         // update pose estimator with gyro and swerve
         m_poseEstimator.update(getGyroYaw(), getModulePositions());
         {

@@ -47,16 +47,6 @@ public class Robot extends TimedRobot {
         // autonomous chooser on the dashboard.
         m_robotContainer = new RobotContainer();
 
-        // camera port forwards
-        // PortForwarder.add(5800, "photonvision-a.local", 5800);
-        // PortForwarder.add(5800, "photonvision-b.local", 5800);
-
-        // PortForwarder.add(1181, "photonvision-a.local", 1181);
-        // PortForwarder.add(1181, "photonvision-b.local", 1181);
-
-        // PortForwarder.add(1182, "photonvision-a.local", 1182);
-        // PortForwarder.add(1182, "photonvision-b.local", 1182);
-
         m_timerDisabled = new Timer();
         CommandScheduler.getInstance().schedule(PathfindingCommand.warmupCommand());
     }
@@ -94,8 +84,6 @@ public class Robot extends TimedRobot {
 
     @Override
     public void disabledPeriodic() {
-        m_robotContainer.setLimelight4IMUMode(LimelightIMUModes.EXTERNAL_SEED);
-
         if (m_timerDisabled.get() >= DriveConstants.kTimeBeforeBrakeDisabled && !areWheelsInCoast) {
             m_robotContainer.setNeutralModeSwerve(NeutralModeValue.Coast);
             areWheelsInCoast = true;
@@ -115,16 +103,11 @@ public class Robot extends TimedRobot {
         if (m_autonomousCommand != null) {
             CommandScheduler.getInstance().schedule(m_autonomousCommand);
         }
-
-        m_robotContainer.initSubsystems();
     }
 
     /** This function is called periodically during autonomous. */
     @Override
     public void autonomousPeriodic() {
-        // m_robotContainer.setLimelight4IMUMode(LimelightIMUModes.INTERNAL_EXTERNAL_ASSIST);
-        m_robotContainer.setLimelight4IMUMode(LimelightIMUModes.EXTERNAL_ONLY);
-
     }
 
     @Override
@@ -138,15 +121,11 @@ public class Robot extends TimedRobot {
         }
 
         m_robotContainer.resetGyroOffsetEstimatedPose();
-        m_robotContainer.initSubsystems();
     }
 
     /** This function is called periodically during operator control. */
     @Override
     public void teleopPeriodic() {
-        // m_robotContainer.setLimelight4IMUMode(LimelightIMUModes.INTERNAL_EXTERNAL_ASSIST);
-        m_robotContainer.setLimelight4IMUMode(LimelightIMUModes.EXTERNAL_ONLY);
-
     }
 
     @Override
