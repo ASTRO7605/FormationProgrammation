@@ -55,6 +55,7 @@ public final class Constants {
          * Swerve Kinematics
          * No need to ever change this unless you are not doing a traditional
          * rectangular/square 4 module swerve
+         * In order: Front left, front right, back left, back right
          */
         public static final SwerveDriveKinematics swerveKinematics = new SwerveDriveKinematics(
                 new Translation2d(wheelBase / 2.0, trackWidth / 2.0),
@@ -131,14 +132,12 @@ public final class Constants {
         /* Module Specific Constants */
         /* Front Left Module - Module 0 */
         public static final class Mod0 {
-            public static final int driveMotorID = 1;
-            public static final int angleMotorID = 2;
-            public static final int canCoderID = 1;
-            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(47.46); // Anciennement
-            // -152.95
+            private static final int driveMotorID = 1;
+            private static final int angleMotorID = 2;
+            private static final int canCoderID = 1;
+            private static final Rotation2d angleOffset = Rotation2d.fromDegrees(-47.46);
             public static final SwerveModuleConstants constants = new SwerveModuleConstants(driveMotorID,
-                    angleMotorID,
-                    canCoderID, angleOffset);
+                    angleMotorID, canCoderID, angleOffset);
         }
 
         /* Front Right Module - Module 1 */
@@ -146,11 +145,9 @@ public final class Constants {
             public static final int driveMotorID = 3;
             public static final int angleMotorID = 4;
             public static final int canCoderID = 2;
-            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(297.86); // Anciennement
-            // 138.65
+            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(-297.86);
             public static final SwerveModuleConstants constants = new SwerveModuleConstants(driveMotorID,
-                    angleMotorID,
-                    canCoderID, angleOffset);
+                    angleMotorID, canCoderID, angleOffset);
         }
 
         /* Back Left Module - Module 2 */
@@ -158,11 +155,9 @@ public final class Constants {
             public static final int driveMotorID = 5;
             public static final int angleMotorID = 6;
             public static final int canCoderID = 3;
-            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(298.92); // Anciennement
-            // -53.65
+            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(-298.92);
             public static final SwerveModuleConstants constants = new SwerveModuleConstants(driveMotorID,
-                    angleMotorID,
-                    canCoderID, angleOffset);
+                    angleMotorID, canCoderID, angleOffset);
         }
 
         /* Back Right Module - Module 3 */
@@ -170,11 +165,9 @@ public final class Constants {
             public static final int driveMotorID = 7;
             public static final int angleMotorID = 8;
             public static final int canCoderID = 4;
-            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(-143.09); // Anciennement
-            // -149.55
+            public static final Rotation2d angleOffset = Rotation2d.fromDegrees(143.09);
             public static final SwerveModuleConstants constants = new SwerveModuleConstants(driveMotorID,
-                    angleMotorID,
-                    canCoderID, angleOffset);
+                    angleMotorID, canCoderID, angleOffset);
         }
     }
 
@@ -340,7 +333,7 @@ public final class Constants {
         public static final double maxAcceleration = 60;
         public static final int kCurrentLimit = 50;
 
-         public static final double FailSafeVelocity = 2900;
+        public static final double FailSafeVelocity = 2900;
 
         public static final double kInSpeed = 0.75; // TODO: increase speed to allow for faster shooting of balls
         public static final double kOutSpeed = -0.5;
@@ -379,6 +372,7 @@ public final class Constants {
 
         // position to switch between feeding / shooting
         public static final double kXPosFeed = Units.inchesToMeters(195);
+
         public static enum BluePositions {
             HUB(new Translation2d(Units.inchesToMeters(182.11), Units.inchesToMeters(166.84))),
             DEPOT_DUMP(new Translation2d(Units.inchesToMeters(30), Units.inchesToMeters(287.69))),

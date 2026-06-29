@@ -6,6 +6,8 @@ import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.FieldConstants;
 import frc.robot.Constants.PoseEstimationConstants;
 import frc.robot.Constants.VisionConstants;
+import frc.robot.subsystems.Swerve.SwerveModule;
+import frc.robot.subsystems.Swerve.ModuleIO;
 import frc.robot.Constants.VisionConstants.LimelightIMUModes;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -63,7 +65,7 @@ public class Base extends SubsystemBase {
 
     private final SysIdRoutine routine;
 
-    public Base() {
+    public Base(ModuleIO[] moduleIOs) {
         m_gyro = new Pigeon2(Constants.DriveConstants.pigeonID, canbus);
 
         m_gyro.getConfigurator().apply(new Pigeon2Configuration());
@@ -80,12 +82,11 @@ public class Base extends SubsystemBase {
             e.printStackTrace();
         }
 
-        m_swerveMods = new SwerveModule[] {
-                new SwerveModule(0, DriveConstants.Mod0.constants),
-                new SwerveModule(1, DriveConstants.Mod1.constants),
-                new SwerveModule(2, DriveConstants.Mod2.constants),
-                new SwerveModule(3, DriveConstants.Mod3.constants)
-        };
+        // front left, front right, back left, back right
+        m_swerveMods = new SwerveModule[4];
+        for (int i = 0; i < 4; i++) {
+            m_swerveMods[i] = new SwerveModule(moduleIOs[i], i);
+        }
 
         m_poseEstimator = new SwerveDrivePoseEstimator(
                 DriveConstants.swerveKinematics, m_gyro.getRotation2d(),
@@ -94,13 +95,23 @@ public class Base extends SubsystemBase {
                 PoseEstimationConstants.kStateStdDevs,
                 PoseEstimationConstants.kVisionStdDevsDefault);
 
+        // during SysId routine, robot will drive straight ahead while staying straight.
+        // position and velocity are calculated based on the odometry on the x axis
+        // (forwards)
         routine = new SysIdRoutine(
                 new SysIdRoutine.Config(),
                 new SysIdRoutine.Mechanism(
                         voltage -> sysIdMotorsVoltage(voltage),
                         log -> {
+                            // get average voltage from modules
+                            double avgVoltage = 0;
+                            for (int i = 0; i < 4; i++) {
+                                avgVoltage += m_swerveMods[i].getAppliedDriveVoltage();
+                            }
+                            avgVoltage /= 4;
+
                             log.motor("drive")
-                                    .voltage(m_swerveMods[0].getAppliedVoltage())
+                                    .voltage(Voltage.ofBaseUnits(avgVoltage, Volts))
                                     .linearVelocity(MetersPerSecond.of(getRobotRelativeSpeeds().vxMetersPerSecond))
                                     .linearPosition(Meters.of(getPose().getX()));
                         },
@@ -156,8 +167,8 @@ public class Base extends SubsystemBase {
                                 rotation));
         SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.DriveConstants.kMaxTeleopSpeed);
 
-        for (SwerveModule mod : m_swerveMods) {
-            mod.setDesiredState(swerveModuleStates[mod.m_moduleNumber], isOpenLoop);
+        for (int i = 0; i < 4; i++) {
+            m_swerveMods[i].setDesiredState(swerveModuleStates[i]);
         }
     }
 
@@ -165,23 +176,23 @@ public class Base extends SubsystemBase {
     public void setModuleStates(SwerveModuleState[] desiredStates) {
         SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.DriveConstants.kMaxTeleopSpeed);
 
-        for (SwerveModule mod : m_swerveMods) {
-            mod.setDesiredState(desiredStates[mod.m_moduleNumber], false);
+        for (int i = 0; i < 4; i++) {
+            m_swerveMods[i].setDesiredState(desiredStates[i]);
         }
     }
 
     public SwerveModuleState[] getModuleStates() {
         SwerveModuleState[] states = new SwerveModuleState[4];
-        for (SwerveModule mod : m_swerveMods) {
-            states[mod.m_moduleNumber] = mod.getState();
+        for (int i = 0; i < 4; i++) {
+            states[i] = m_swerveMods[i].getState();
         }
         return states;
     }
 
     public SwerveModulePosition[] getModulePositions() {
         SwerveModulePosition[] positions = new SwerveModulePosition[4];
-        for (SwerveModule mod : m_swerveMods) {
-            positions[mod.m_moduleNumber] = mod.getPosition();
+        for (int i = 0; i < 4; i++) {
+            positions[i] = m_swerveMods[i].getPosition();
         }
         return positions;
     }
@@ -222,15 +233,9 @@ public class Base extends SubsystemBase {
         return Rotation2d.fromDegrees(m_gyro.getYaw().getValueAsDouble());
     }
 
-    public void resetModulesToAbsolute() {
-        for (SwerveModule mod : m_swerveMods) {
-            mod.resetToAbsolute();
-        }
-    }
-
     public void setModulesFacingForward() {
         for (var module : m_swerveMods) {
-            module.setDesiredState(new SwerveModuleState(0, new Rotation2d(0)), false);
+            module.setDesiredState(new SwerveModuleState(0, new Rotation2d(0)));
         }
     }
 
@@ -279,9 +284,7 @@ public class Base extends SubsystemBase {
         }
 
         for (SwerveModule mod : m_swerveMods) {
-            SmartDashboard.putNumber("Mod " + mod.m_moduleNumber + " CANcoder", mod.getCANcoder().getDegrees());
-            SmartDashboard.putNumber("Mod " + mod.m_moduleNumber + " Angle", mod.getPosition().angle.getDegrees());
-            SmartDashboard.putNumber("Mod " + mod.m_moduleNumber + " Velocity", mod.getState().speedMetersPerSecond);
+            mod.update();
         }
 
         m_robotField.setRobotPose(m_poseEstimator.getEstimatedPosition());
@@ -292,24 +295,13 @@ public class Base extends SubsystemBase {
         SmartDashboard.putNumber("CANivore Usage", canbus.getStatus().BusUtilization);
     }
 
+    // modules will go straight forward
     public void sysIdMotorsVoltage(Voltage voltage) {
-        // m_appliedVoltage.mut_replace(voltage);
-
-        // resetModulesToAbsolute();
-        // setModulesFacingForward();
-        // m_gyro.setYaw(0);
         double volts = voltage.in(edu.wpi.first.units.Units.Volts);
-        // double currentYaw = m_gyro.getYaw().getValueAsDouble();
-        // Rotation2d headingCorrection = Rotation2d.fromDegrees(-currentYaw); // Rotate
-        // wheels slightly if needed
+        Rotation2d angleTarget = Rotation2d.kZero;
 
         for (SwerveModule mod : m_swerveMods) {
-
-            // lock wheel forward
-            // Rotation2d targetAngle = new Rotation2d(0).plus(headingCorrection);
-
-            // mod.setDesiredState(new SwerveModuleState(0, targetAngle), false);
-            mod.sysIdMotorVoltage(volts);
+            mod.setVoltageState(volts, angleTarget);
         }
     }
 

@@ -27,6 +27,9 @@ import frc.robot.Constants.VisionConstants;
 import frc.robot.Constants.ClimbConstants.climbLvl;
 import frc.robot.Constants.IntakeConstants.intakePos;
 import frc.robot.subsystems.Base;
+import frc.robot.subsystems.Swerve.KrakenSwerveModule;
+import frc.robot.subsystems.Swerve.ModuleIO;
+import frc.robot.subsystems.Swerve.SimSwerveModule;
 
 /**
  * This class is where the bulk of the robot should be declared. Since
@@ -43,9 +46,6 @@ public class RobotContainer {
             DriveConstants.kXboxControllerID);
     private final CommandJoystick m_turnStick = new CommandJoystick(DriveConstants.kTurnStickID);
     private final CommandJoystick m_throttleStick = new CommandJoystick(DriveConstants.kThrottleStickID);
-    private int ClimbButtonCounter = 0;
-    private int ShootButtonCounter = 0;
-    private int intakeButtonCounter = 0;
 
     private double teleopMaxSpeed = DriveConstants.kMaxTeleopSpeed;
 
@@ -58,7 +58,17 @@ public class RobotContainer {
      * The container for the robot. Contains subsystems, OI devices, and commands.
      */
     public RobotContainer() {
-        m_base = new Base();
+        if (Robot.isReal()) {
+            m_base = new Base(new ModuleIO[] { new KrakenSwerveModule(DriveConstants.Mod0.constants),
+                    new KrakenSwerveModule(DriveConstants.Mod1.constants),
+                    new KrakenSwerveModule(DriveConstants.Mod2.constants),
+                    new KrakenSwerveModule(DriveConstants.Mod3.constants) });
+        } else {
+            m_base = new Base(new ModuleIO[] { new SimSwerveModule(DriveConstants.Mod0.constants),
+                    new SimSwerveModule(DriveConstants.Mod1.constants),
+                    new SimSwerveModule(DriveConstants.Mod2.constants),
+                    new SimSwerveModule(DriveConstants.Mod3.constants) });
+        }
 
         if (m_base != null) {
             m_base.setDefaultCommand(getBaseDefaultCommand());
