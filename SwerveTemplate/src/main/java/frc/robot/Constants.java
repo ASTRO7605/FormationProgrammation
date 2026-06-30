@@ -47,9 +47,8 @@ public final class Constants {
         public static final double kRobotWidth = Units.inchesToMeters(32.63);
         public static final double kRobotLength = Units.inchesToMeters(35.69);
 
-        public static final Transform2d kTurretRobotPosition = new Transform2d(
-                new Translation2d(Units.inchesToMeters(7.25), 0),
-                new Rotation2d());
+        public static final double kSimDriveMOI = 0.025;
+        public static final double kSimAngleMOI = 0.005;
 
         /*
          * Swerve Kinematics
@@ -108,19 +107,14 @@ public final class Constants {
         public static final double driveKV = 2.5191;
         public static final double driveKA = 0.29158;
 
-        // public static final double kXYMovementP = 5;
-        // public static final double kXYMovementI = 0;
-        // public static final double kXYMovementD = 0;
-
-        // public static final double kRotationMovementP = 5;
-        // public static final double kRotationMovementI = 0;
-        // public static final double kRotationMovementD = 0;
-
         /* Swerve Profiling Values */
         /** Meters per Second */
         public static final double kMaxTeleopSpeed = 3;
         /** Radians per Second */
         public static final double kMaxTeleopRotateSpeed = 3 * Math.PI;
+
+        /** Meters per Second, absolute maximum in any case */
+        public static final double kMaxModuleSpeed = 5.25;
 
         public static final double kGeneralSpeedMulti = .8;
         public static final double kDriverSlowSpeed = 0.3;
@@ -185,186 +179,12 @@ public final class Constants {
 
     public static final int kCANTimeout = 50;
     public static final int kPeriodicFrameTimeout = 500;
+    public static final double kVoltageCompensation = 11;
 
     ////////////////////////////////////////////////////////
     /// Constants des moteurs Neo Kraken pour les sous-systèmes autres que le
     //////////////////////////////////////////////////////// drivebase
     ////////////////////////////////////////////////////////
-
-    public static final double kVoltageCompensation = 11;
-
-    // constantes pour le climb
-    public static final class ClimbConstants {
-        public static final int climbMotorId = 16;
-        public static final double kp = 1.10;
-        public static final double ki = 0.0;
-        public static final double kd = 0.0;
-        public static final double maxVelocity = 25;
-        public static final double maxAcceleration = 50;
-        public static final int kCurrentLimit = 70;
-        public static final double fPositionConversion = (1.25 * Math.PI) / 15.6; // en pouces par tour de moteur
-        public static final double fVelocityConversion = fPositionConversion / 60;
-        public static final double kSoftLimitForward = 15;
-        public static final double feedforwards = 0; // tune with built climber
-        public static final double kPositionThreshold = 0.25;
-
-        // enum pour les positions de climb
-        public static enum climbLvl {
-            // in inches
-            Stowed(2.8), // hauteur légale pour le climb
-            Hang(0), // hauteur pour accrocher le robot à la barre
-            Extended(14);// ~30 inch
-
-            public final double position;
-
-            climbLvl(double position) {
-                this.position = position;
-            }
-        }
-
-        public static final double kManualPercentage = 0.1;
-        public static final double kInitPercentage = -0.1;
-        public static final double kInitTimeDelaySeconds = 0.1;
-        public static final double kStoppedMotorThreshold = 0.1;
-        public static final double kInitPosition = 0;
-    }
-
-    // constantes pour les intakes
-    public static final class IntakeConstants {
-        public static final int rightIntakeMotorId = 9;
-        public static final int kCurrentLimit = 50;
-        public static final double kp = 0.015;
-        public static final double ki = 0.0;
-        public static final double kd = 0.04;
-        public static final double kv = 0.0;
-        // (Rotations –> °)
-        public static final double fPositionConversion = 810 / 31;
-        // RPM -> ° / s
-        public static final double fVelocityConversion = fPositionConversion / 60;
-
-        public static final double maxVelocity = 240;
-        public static final double maxAcceleration = 700;
-        public static final double kSoftLimitReverse = -142;
-        public static final double kMaxAf = 0.97;
-        public static final double kLimitSwitchPosition = 0; // degrees
-        public static final double kAfOffset = 140; // degrés
-
-        public static final double manualSpeed = 0.1;
-        public static final double initSpeed = 0.08;
-
-        public static final double wiggleTime = 1.0; // seconds
-
-        public static final double kPositionThreshold = 3; // degrees
-
-        // enum pour les positions de l'intake
-        public static enum intakePos {
-            // in degrees
-            Stowed(-0.5),
-            Down(-146),
-            WiggleOut(-120),
-            WiggleIn(-70);
-
-            public final double position;
-
-            intakePos(double position) {
-                this.position = position;
-            }
-        }
-    }
-
-    // constantes pour le convoyeur
-    public static final class ConveyorConstants {
-        public static final int intakeRollerMotorId = 10;
-        public static final int conveyorMotorId = 11;
-
-        public static final int intakeRollerPdhChannel = 17;
-
-        public static final int kCurrentLimit = 65; // TODO: increase current limit to allow for faster intake speed
-                                                    // (60~)
-
-        public static final double kp = 0.0;
-        public static final double ki = 0.0;
-        public static final double kd = 0.0;
-        public static final double kv = 0.0;
-
-        public static final double setConveyorInSpeed = 3000;
-        public static final double setConveyorOutSpeed = -1000;
-
-        public static final double conveyorTimeIn = 1.0; // seconds
-        public static final double conveyorTimeOff = 0.15; // seconds
-
-        public static final double manualPercentageInConveyor = 1;
-        public static final double manualPercentageOutConveyor = -1;
-        public static final double manualPercentageInIntake = 1;
-        public static final double manualPercentageOutIntake = -1;
-
-        // Motor RPM -> Roller RPM
-        public static final double fPositionConversion = 1.0 / 4.0;
-        public static final double fVelocityConversion = fPositionConversion / 60;
-
-        public static final double kThresholdMotorStopped = 500;
-
-    }
-
-    // constantes pour le shooter
-    public static final class ShooterConstants {
-        public static final int rightShooterMotorId = 13;
-        public static final int leftShooterMotorId = 14;
-        public static final double kp = 0.0001;
-        public static final double ki = 0.0;
-        public static final double kd = 0.000175;
-        public static final double kv = 0.0021;
-        public static final int kCurrentLimit = 65;
-        // RPM -> rotations par minute
-        public static final double fPositionConversion = 1;
-        public static final double fVelocityConversion = 1;
-
-        public static final double FailSafeVelocity = 5000;
-
-        public static final double kPredictPoseLatency = 0.1; // seconds
-
-        public static final double kSpeedShootThreshold = 100;
-    }
-
-    // constantes pour la base du shooter
-    public static final class ShooterBaseConstants {
-        public static final int shooterBaseMotorId = 12;
-        public static final double maxVelocity = 40;
-        public static final double maxAcceleration = 60;
-        public static final int kCurrentLimit = 50;
-
-        public static final double FailSafeVelocity = 2900;
-
-        public static final double kInSpeed = 0.75; // TODO: increase speed to allow for faster shooting of balls
-        public static final double kOutSpeed = -0.5;
-
-        public static final double kThresholdMotorStopped = 500;
-    }
-
-    // constantes pour les tourelles
-    public static final class TurretConstants {
-        public static final int turretMotorId = 15;
-        public static final double kp = 0.06;
-        public static final double ki = 0.0;
-        public static final double kd = 0.1;
-        public static final int kCurrentLimit = 50;
-        // (Rotations –> °)
-        public static final double fPositionConversion = 9;
-        // RPM -> degrés par seconde
-        public static final double fVelocityConversion = fPositionConversion / 60;
-
-        public static final double maxVelocity = 0;
-        public static final double maxAcceleration = 0;
-        public static final double kLimitSwitchPosition = 65; // degrees
-        public static final double kSoftLimitReverse = -67;
-        public static final double kInitPercentage = 0.075;
-
-        public static final double kMaxSetpoint = 64;
-        public static final double kMinSetpoint = -66;
-        public static final double kExtremesThreshold = 15;
-
-        public static final double kAngleShootThreshold = 1.5;
-    }
 
     public static final class FieldConstants {
         public static final Translation2d kFullFieldCoords = new Translation2d(Units.inchesToMeters(652.22),

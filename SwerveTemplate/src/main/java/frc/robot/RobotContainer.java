@@ -24,8 +24,6 @@ import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.VisionConstants;
-import frc.robot.Constants.ClimbConstants.climbLvl;
-import frc.robot.Constants.IntakeConstants.intakePos;
 import frc.robot.subsystems.Base;
 import frc.robot.subsystems.Swerve.KrakenSwerveModule;
 import frc.robot.subsystems.Swerve.ModuleIO;
@@ -89,11 +87,14 @@ public class RobotContainer {
 
     private Command getBaseDefaultCommand() {
         return new RunCommand(() -> {
-            // double dir_x = m_driverController.getLeftX();
-            // double dir_y = m_driverController.getLeftY();
+            double dir_x = 0;
+            double dir_y = 0;
+            double turn = 0;
 
-            double dir_x = -m_throttleStick.getX();
-            double dir_y = -m_throttleStick.getY();
+            dir_x = -m_driverController.getLeftX();
+            dir_y = -m_driverController.getLeftY();
+            turn = MathUtil.applyDeadband(m_driverController.getRightX(),
+                    DriveConstants.kControllerRotationDeadband);
 
             // Convert cartesian vector to polar for circular deadband
             double dir_r = Math.sqrt(Math.pow(dir_x, 2) + Math.pow(dir_y, 2)); // norm of vector
@@ -110,10 +111,6 @@ public class RobotContainer {
             }
             dir_r *= dir_r;
 
-            double turn = 0;
-
-            turn = MathUtil.applyDeadband(m_turnStick.getX(),
-                    DriveConstants.kControllerRotationDeadband);
             // square and invert motor direction
             turn *= (turn > 0) ? -turn : turn;
 

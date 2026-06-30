@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import frc.robot.Constants;
+import frc.robot.Robot;
 import frc.robot.Constants.AutoConstants;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.FieldConstants;
@@ -34,6 +35,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.MutVoltage;
 import edu.wpi.first.units.measure.Voltage;
@@ -63,7 +65,12 @@ public class Base extends SubsystemBase {
     private double m_gyroOffset = 0.0;
     private boolean m_drivingInFieldRelative = true;
 
+    private Rotation2d robotAngle = Rotation2d.kZero;
+
     private final SysIdRoutine routine;
+
+    private final SwerveModulePosition[] lastModulePositions;
+    private final SwerveModulePosition[] moduleDeltas;
 
     public Base(ModuleIO[] moduleIOs) {
         m_gyro = new Pigeon2(Constants.DriveConstants.pigeonID, canbus);
@@ -88,9 +95,21 @@ public class Base extends SubsystemBase {
             m_swerveMods[i] = new SwerveModule(moduleIOs[i], i);
         }
 
+        lastModulePositions = new SwerveModulePosition[] {
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition() };
+
+        moduleDeltas = new SwerveModulePosition[] {
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition() };
+
         m_poseEstimator = new SwerveDrivePoseEstimator(
-                DriveConstants.swerveKinematics, m_gyro.getRotation2d(),
-                getModulePositions(),
+                DriveConstants.swerveKinematics, getRobotYaw(),
+                getLastModulePositions(),
                 new Pose2d(new Translation2d(0, 0), new Rotation2d(0)),
                 PoseEstimationConstants.kStateStdDevs,
                 PoseEstimationConstants.kVisionStdDevsDefault);
@@ -160,13 +179,12 @@ public class Base extends SubsystemBase {
                         translation.getX(),
                         translation.getY(),
                         rotation,
-                        Rotation2d.fromRadians(m_gyro.getRotation2d().getRadians() - m_gyroOffset))
+                        Rotation2d.fromRadians(getRobotYaw().getRadians() - m_gyroOffset))
                         : new ChassisSpeeds(
                                 translation.getX(),
                                 translation.getY(),
                                 rotation));
-        SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.DriveConstants.kMaxTeleopSpeed);
-
+        SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.DriveConstants.kMaxModuleSpeed);
         for (int i = 0; i < 4; i++) {
             m_swerveMods[i].setDesiredState(swerveModuleStates[i]);
         }
@@ -174,7 +192,7 @@ public class Base extends SubsystemBase {
 
     /* Used by SwerveControllerCommand in Auto */
     public void setModuleStates(SwerveModuleState[] desiredStates) {
-        SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.DriveConstants.kMaxTeleopSpeed);
+        SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.DriveConstants.kMaxModuleSpeed);
 
         for (int i = 0; i < 4; i++) {
             m_swerveMods[i].setDesiredState(desiredStates[i]);
@@ -189,7 +207,7 @@ public class Base extends SubsystemBase {
         return states;
     }
 
-    public SwerveModulePosition[] getModulePositions() {
+    public SwerveModulePosition[] getLastModulePositions() {
         SwerveModulePosition[] positions = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {
             positions[i] = m_swerveMods[i].getPosition();
@@ -212,7 +230,7 @@ public class Base extends SubsystemBase {
     }
 
     public void setPose(Pose2d pose) {
-        m_poseEstimator.resetPosition(getGyroYaw(), getModulePositions(), pose);
+        m_poseEstimator.resetPosition(getRobotYaw(), getLastModulePositions(), pose);
     }
 
     public Rotation2d getHeading() {
@@ -220,17 +238,26 @@ public class Base extends SubsystemBase {
     }
 
     public void setHeading(Rotation2d heading) {
-        m_poseEstimator.resetPosition(getGyroYaw(), getModulePositions(),
+        m_poseEstimator.resetPosition(getRobotYaw(), getLastModulePositions(),
                 new Pose2d(getPose().getTranslation(), heading));
     }
 
     public void zeroHeading() {
-        m_poseEstimator.resetPosition(getGyroYaw(), getModulePositions(),
+        m_poseEstimator.resetPosition(getRobotYaw(), getLastModulePositions(),
                 new Pose2d(getPose().getTranslation(), new Rotation2d()));
     }
 
-    public Rotation2d getGyroYaw() {
-        return Rotation2d.fromDegrees(m_gyro.getYaw().getValueAsDouble());
+    public Rotation2d getRobotYaw() {
+        // gyro if real, else swerve deltas in sim
+        if (Robot.isReal()) {
+            robotAngle = m_gyro.getRotation2d();
+        } else {
+            // Use the angle delta from the kinematics and module deltas
+            Twist2d twist = DriveConstants.swerveKinematics.toTwist2d(moduleDeltas);
+            robotAngle = robotAngle.plus(new Rotation2d(twist.dtheta));
+        }
+
+        return robotAngle;
     }
 
     public void setModulesFacingForward() {
@@ -253,10 +280,10 @@ public class Base extends SubsystemBase {
 
     public void resetGyroOffset(boolean usePoseEstimator) {
         if (!usePoseEstimator) {
-            m_gyroOffset = m_gyro.getRotation2d().getRadians();
+            m_gyroOffset = getRobotYaw().getRadians();
         } else {
             double currentHeading = m_poseEstimator.getEstimatedPosition().getRotation().getRadians();
-            double currentGyroAngle = m_gyro.getRotation2d().getRadians();
+            double currentGyroAngle = getRobotYaw().getRadians();
             double targetHeading = (m_allianceColor == DriverStation.Alliance.Blue) ? 0
                     : Math.toRadians(180);
 
@@ -274,8 +301,18 @@ public class Base extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // update pose estimator with gyro and swerve
-        m_poseEstimator.update(getGyroYaw(), getModulePositions());
+        // update positions
+        SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+        for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+            modulePositions[moduleIndex] = m_swerveMods[moduleIndex].getPosition();
+            moduleDeltas[moduleIndex] = new SwerveModulePosition(
+                    modulePositions[moduleIndex].distanceMeters
+                            - lastModulePositions[moduleIndex].distanceMeters,
+                    modulePositions[moduleIndex].angle);
+            lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+        }
+
+        m_poseEstimator.update(robotAngle, getLastModulePositions());
         {
             var all = DriverStation.getAlliance();
             if (all.isPresent()) {

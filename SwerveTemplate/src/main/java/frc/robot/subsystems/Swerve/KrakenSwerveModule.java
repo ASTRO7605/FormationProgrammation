@@ -10,6 +10,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Rotation2d;
+import frc.lib.math.Conversions;
 import frc.lib.util.SwerveModuleConstants;
 import frc.robot.Constants;
 import frc.robot.Robot;
@@ -87,7 +88,8 @@ public class KrakenSwerveModule implements ModuleIO {
     public void setDriveVelocityRps(double velocity) {
         m_driveMotor.setControl(
                 m_driveVelocity.withVelocity(velocity)
-                        .withFeedForward(m_driveFeedForward.calculate(velocity)));
+                        .withFeedForward(m_driveFeedForward
+                                .calculate(Conversions.RPSToMPS(velocity, DriveConstants.wheelCircumference))));
     }
 
     public void setAngleVoltage(double voltage) {
