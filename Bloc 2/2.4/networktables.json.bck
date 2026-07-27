@@ -1,0 +1,10 @@
+[
+  {
+    "name": "/Preferences/driverMulti",
+    "type": "double",
+    "value": 0.5,
+    "properties": {
+      "persistent": true
+    }
+  }
+]
